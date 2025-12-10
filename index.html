@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplified Cash Counter</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind to use 'Inter' font and specific colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'app-green': '#10a562',
+                        'app-yellow': '#ffc107',
+                        'app-dark': '#1e293b',
+                        'app-darker': '#0f172a',
+                        'app-red': '#dc2626',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom styles for the note inputs and rows */
+        .note-row {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #334155; /* slate-700 */
+        }
+        .note-image {
+            width: 50px; /* Small fixed width for notes */
+            height: 30px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+        }
+        .count-input {
+            width: 60px;
+            text-align: center;
+            background-color: #0f172a; /* app-darker */
+            color: white;
+            border: 1px solid #334155;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        .total-display {
+            background-color: #0f172a;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            min-width: 80px;
+            text-align: right;
+        }
+        .rupee-icon::before {
+            content: "₹";
+            margin-right: 2px;
+        }
+        /* Adjusted action button styling for the footer summary */
+        .action-button {
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.2s;
+            /* Flex column for icon and text stacked */
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem; /* Reduced padding for fit */
+            line-height: 1; /* Tighten line height */
+        }
+        .action-button svg {
+            margin-bottom: 4px; /* Small space between icon and text */
+        }
+    </style>
+</head>
+<body class="bg-app-dark text-white font-sans min-h-screen">
+
+    <div class="max-w-md mx-auto shadow-2xl">
+        <!-- Header Bar -->
+        <header class="bg-app-green p-4 flex flex-col space-y-2">
+            
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">Cash Counter</h1>
+            </div>
+
+            <input id="payer-name" type="text" placeholder="Enter Payer/Account Name (e.g., 'Today's Deposit')"
+                   class="w-full p-2 text-sm rounded-lg bg-white bg-opacity-20 text-white placeholder-gray-200 border border-white/50 focus:outline-none focus:ring-1 focus:ring-white">
+        </header>
+
+        <!-- Main Counter Area -->
+        <main class="p-4 space-y-2">
+            <!-- Tally Header (Total Display) -->
+            <div class="flex items-center justify-between p-2 bg-gray-800 rounded-lg">
+                <span id="total-notes-count" class="text-lg font-bold text-app-yellow">0</span>
+                <span class="text-white/80 font-medium ml-2 flex-grow"> &lt;= Total Notes Counted</span>
+                <span id="grand-total-display" class="rupee-icon text-2xl font-extrabold text-app-yellow">0</span>
+            </div>
+
+            <div class="space-y-1">
+                <!-- Denomination Rows will be inserted here by script -->
+                <script>
+                    // Only high-value notes are included (50, 100, 200, 500)
+                    const denominations = [
+                        [500, 'text-red-500 bg-red-900'],
+                        [200, 'text-orange-500 bg-orange-900'],
+                        [100, 'text-violet-500 bg-violet-900'],
+                        [50, 'text-teal-500 bg-teal-900'],
+                    ];
+
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const container = document.querySelector('.space-y-1');
+                        denominations.forEach(([value, colorClass]) => {
+                            // Extract just the text color class for the total display
+                            const textColorClass = colorClass.split(' ')[0];
+
+                            const row = document.createElement('div');
+                            row.className = 'note-row';
+                            row.innerHTML = `
+                                <!-- Note Image Placeholder (Styled with background color) -->
+                                <div class="note-image flex items-center justify-center text-xs font-bold ${colorClass}">
+                                    ${value}
+                                </div>
+                                <!-- Denomination Value -->
+                                <div class="w-1/4 text-right text-lg font-semibold mr-1">${value} x</div>
+                                <!-- Count Input -->
+                                <input id="count-${value}" type="number" value="0" min="0" 
+                                       class="count-input flex-shrink-0 appearance-none focus:ring-app-yellow focus:border-app-yellow">
+                                <!-- Equals Sign -->
+                                <div class="mx-2 font-bold text-lg">=</div>
+                                <!-- Subtotal Display - Color-coded -->
+                                <div id="total-${value}" class="total-display flex-grow text-right rupee-icon ${textColorClass}">0</div>
+                            `;
+                            container.appendChild(row);
+                        });
+
+                        // Attach event listeners after creation
+                        document.querySelectorAll('.count-input').forEach(input => {
+                            input.addEventListener('input', calculateTotals);
+                        });
+                        
+                        // Initial calculation call
+                        calculateTotals(); 
+                    });
+                </script>
+            </div>
+            
+            <!-- Total Footer Display - 3-COLUMN GRID WITH SHARE IN THE MIDDLE -->
+            <div class="pt-4 grid grid-cols-3 gap-2 items-stretch">
+                <!-- Total Notes (Left Column) -->
+                <div class="p-3 text-center rounded-lg bg-gray-700 text-white font-bold text-sm">
+                    Notes: <span id="footer-notes-count" class="text-lg">0</span>
+                </div>
+                
+                <!-- Share Button (Center Column) -->
+                <button id="share-button" class="action-button bg-green-700 text-white hover:bg-green-600 active:bg-green-800 text-xs">
+                    <!-- WhatsApp Icon -->
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.039 2.503c-5.592 0-10.134 4.542-10.134 10.133 0 1.772.463 3.49 1.34 5.013l-1.397 4.094 4.205-1.365c1.472.802 3.123 1.258 4.985 1.258h.001c5.589 0 10.133-4.543 10.133-10.134s-4.544-10.133-10.133-10.133zm4.77 14.898c-.287.35-.91.733-1.396.793-.485.059-.971.076-1.455-.138-.485-.213-1.071-.47-1.666-.713-1.745-.717-2.924-1.956-3.865-3.328-.94-1.372-1.01-3.011-.274-3.744.736-.733 1.942.348 2.302.597.359.248.604.532.747.882.144.35.08.749-.076 1.1-.157.35-.92.836-1.574 1.291-.655.454-.997.777-.665 1.353.332.576 1.62.98 3.036 1.688 1.417.708 2.684.975 3.17.76.485-.212.784-.528.93-.878.147-.35.155-.783.008-1.133-.147-.35-.558-.87-.803-1.118-.245-.247-.57-.424-.593-.57-.023-.146.108-.344.274-.53.166-.186.43-.247.604-.247.173 0 .467-.06.777-.06s.664.06.879.47.288 1.05.076 1.455z"/>
+                    </svg>
+                    Share
+                </button>
+                
+                <!-- Total Amount (Right Column) -->
+                <div class="p-3 text-center rounded-lg bg-app-yellow text-app-darker font-extrabold text-sm">
+                    Total: <span id="footer-grand-total" class="rupee-icon text-lg">0</span>
+                </div>
+            </div>
+
+            <!-- Text Conversion Display -->
+            <div class="text-center text-xl font-semibold text-app-yellow pt-2">
+                Zero
+            </div>
+            
+        </main>
+
+        <!-- Image Scanning Section -->
+        <section class="mt-4 p-4 bg-app-darker rounded-lg border border-app-green mx-auto max-w-sm">
+            <h3 class="text-lg font-bold text-app-green mb-3 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664.89l.812-.24a2 2 0 011.664 0l.812.24a2 2 0 001.664-.89H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3 3m0 0l-3-3m3 3V8"></path></svg>
+                OCR Text Extractor (Requires External Network Access)
+            </h3>
+            
+            <input type="file" id="image-upload" accept="image/*" class="w-full text-sm text-white/80 
+                   file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm 
+                   file:font-semibold file:bg-green-500 file:text-white hover:file:bg-green-600"/>
+            
+            <div id="loading-indicator" class="hidden text-center mt-3 text-app-yellow">
+                <div class="animate-spin inline-block w-6 h-6 border-4 border-t-transparent border-app-yellow rounded-full"></div>
+                <p class="mt-1">Performing OCR and extracting text lines...</p>
+            </div>
+
+            <div id="image-preview-container" class="mt-3 hidden">
+                <img id="image-preview" alt="Image Preview" class="max-w-full h-auto max-h-40 mx-auto rounded-lg object-contain border border-gray-600"/>
+            </div>
+
+            <!-- New suggestion list area -->
+            <div id="suggestions-area" class="mt-4 p-3 bg-gray-800 rounded-lg hidden">
+                <p class="text-xs font-semibold text-white/50 mb-2">Select a line to use as the Payer Name:</p>
+                <div id="suggestions-list" class="flex flex-col gap-2">
+                    <!-- Buttons will be inserted here -->
+                </div>
+            </div>
+
+            <div id="error-message-reader" class="mt-3 text-sm text-app-red hidden p-2 border border-app-red rounded"></div>
+
+        </section>
+
+        <!-- Footer for Status Messages only -->
+        <footer class="p-4 pt-0">
+            <div id="status-message" class="mt-4 p-2 text-center text-sm font-medium rounded hidden transition-opacity duration-300"></div>
+        </footer>
+    </div>
+
+    <script>
+        // --- Core Application Setup ---
+        const currencyMap = {
+            500: 'count-500', 200: 'count-200', 100: 'count-100', 50: 'count-50',
+        };
+
+        const totalDisplay = document.getElementById('grand-total-display');
+        const totalNotesDisplay = document.getElementById('total-notes-count');
+        const footerTotalDisplay = document.getElementById('footer-grand-total');
+        const footerNotesDisplay = document.getElementById('footer-notes-count');
+        const shareButton = document.getElementById('share-button'); 
+        const statusMessage = document.getElementById('status-message');
+        const payerNameInput = document.getElementById('payer-name');
+
+        /**
+         * Formats a number to a string with Indian currency style (commas).
+         * @param {number} num 
+         * @returns {string}
+         */
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('en-IN').format(num);
+        }
+
+        /**
+         * Recalculates the total amount and updates all display fields.
+         */
+        function calculateTotals() {
+            let grandTotal = 0;
+            let totalNotes = 0;
+
+            for (const value in currencyMap) {
+                const inputId = currencyMap[value];
+                const inputElement = document.getElementById(inputId);
+
+                if (inputElement) {
+                    const count = parseInt(inputElement.value) || 0;
+                    const amount = parseInt(value) * count;
+
+                    const totalElement = document.getElementById(`total-${value}`);
+                    if (totalElement) {
+                        totalElement.textContent = formatCurrency(amount);
+                    }
+
+                    grandTotal += amount;
+                    totalNotes += count;
+                }
+            }
+
+            totalDisplay.textContent = formatCurrency(grandTotal);
+            footerTotalDisplay.textContent = formatCurrency(grandTotal);
+            
+            totalNotesDisplay.textContent = totalNotes;
+            footerNotesDisplay.textContent = totalNotes;
+
+            document.querySelector('.text-xl.font-semibold.text-app-yellow').textContent = (grandTotal === 0 ? 'Zero' : 'Amount Tally Complete');
+        }
+
+        /**
+         * Copies the given text to the clipboard.
+         * @param {string} text 
+         * @returns {boolean} True if copy succeeded, false otherwise.
+         */
+        function copyToClipboard(text) {
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = text;
+            tempTextArea.style.position = 'fixed';
+            tempTextArea.style.left = '-9999px';
+            document.body.appendChild(tempTextArea);
+            tempTextArea.focus();
+            tempTextArea.select();
+            
+            let success = false;
+            try {
+                success = document.execCommand('copy');
+            } catch (err) {
+                console.error('Clipboard copy failed:', err);
+            }
+            document.body.removeChild(tempTextArea);
+            return success;
+        }
+
+        /**
+         * Displays a temporary success or error message.
+         * @param {string} message 
+         * @param {boolean} success 
+         */
+        function showStatus(message, success) {
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden', 'bg-green-800', 'bg-red-800', 'text-green-400', 'text-red-400');
+            statusMessage.classList.add(success ? 'bg-green-800' : 'bg-red-800');
+            statusMessage.classList.add(success ? 'text-green-400' : 'text-red-400');
+            
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        /**
+         * Generates the shareable text and attempts to open the WhatsApp share dialog.
+         */
+        function shareResult() {
+            const payerName = payerNameInput.value.trim() || 'Unspecified Payer';
+            let detailRows = '';
+            let totalNotes = 0;
+            let grandTotal = 0;
+
+            for (const value in currencyMap) {
+                const inputId = currencyMap[value];
+                const inputElement = document.getElementById(inputId);
+                const denomination = parseInt(value);
+                const count = parseInt(inputElement.value) || 0;
+                
+                if (count > 0) {
+                    const amount = denomination * count;
+                    detailRows += `₹${denomination} x ${count} N = ₹${formatCurrency(amount)}\n`;
+                }
+                totalNotes += count;
+                grandTotal += denomination * count;
+            }
+
+            const totalFormatted = formatCurrency(grandTotal);
+            const date = new Date().toLocaleDateString('en-IN');
+            const time = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+            const shareText = `*Cash Tally Report*\n\n` +
+                              `👤 *Payer:* ${payerName}\n` +
+                              `📅 *Time:* ${date} ${time}\n\n` +
+                              `*Breakdown:*\n${detailRows}` +
+                              `---------------------------\n` +
+                              `📝 *Total Notes:* ${totalNotes}\n` +
+                              `💵 *GRAND TOTAL:* ₹${totalFormatted}`;
+
+            const encodedText = encodeURIComponent(shareText);
+            const mobileUrl = `whatsapp://send?text=${encodedText}`;
+            const webUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+
+            try {
+                window.open(mobileUrl, '_self');
+                showStatus('✅ Attempting to open WhatsApp...', true);
+
+                setTimeout(() => {
+                    if (document.hasFocus()) {
+                        window.open(webUrl, '_blank');
+                    }
+                }, 500);
+
+            } catch (e) {
+                try {
+                    window.open(webUrl, '_blank');
+                    showStatus('✅ Falling back to Web WhatsApp...', true);
+                } catch(e2) {
+                    if (copyToClipboard(shareText)) {
+                        showStatus('⚠️ WhatsApp failed. Report copied to clipboard!', false);
+                    } else {
+                         showStatus('❌ Critical failure. Cannot share or copy.', false);
+                    }
+                }
+            }
+        }
+        
+        // --- Image Scanning / LLM Integration (OCR Mode) ---
+
+        const apiKey = ""; // API key is provided by the environment
+        const model = "gemini-2.5-flash-preview-09-2025";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        
+        // Elements for Image Reader
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const suggestionsArea = document.getElementById('suggestions-area');
+        const suggestionsList = document.getElementById('suggestions-list');
+        const errorReader = document.getElementById('error-message-reader');
+
+        // JSON Schema for structured extraction of name suggestions
+        const suggestionSchema = {
+            type: "ARRAY",
+            description: "A list of distinct, significant lines or blocks of text found in the image, suitable for use as a transaction or document title.",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    "suggestion": { 
+                        "type": "STRING", 
+                        "description": "A line of text extracted verbatim from the document (up to 100 characters)." 
+                    }
+                },
+                "propertyOrdering": ["suggestion"]
+            }
+        };
+
+        /**
+         * Converts a File object to a Base64 string (excluding the data URL prefix).
+         * @param {File} file 
+         * @returns {Promise<string|null>} Resolves with base64 data or null if read fails.
+         */
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64Data = reader.result.split(',')[1];
+                    if (base64Data) {
+                        resolve(base64Data);
+                    } else {
+                        reje
